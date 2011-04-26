@@ -1,25 +1,47 @@
 ### rsyncas - Rsync Auto Script ###
 Yes, i was running out of ideas for the name
 
+---
 
 ### License ###
 This software is licensed under the highly restrictive <a href="http://en.wikipedia.org/wiki/WTFPL">DO WHAT THE FUCK YOU WANT TO PUBLIC LICENSE 2.0</a> or later.
 If this license doesn't suit you: you're doing it wrong.
 
+---
 
 ### What it does? ###
 Sync files. Yes its just a rsync automator.
 I use it to backup my servers
 
-
-### What it doesn't? ###
-Lots of things.
-
+---
 
 ### There are so many backup solutions/scripts, why another? ###
 * This was a 2 hours cooking to replace some bloated "backup solution/script" that i found on the "internets" and was burning my CPU.
 * This one does exactly what i want.
 
+---
+
+### Installing dependencies (as root)
+* On Debian
+    apt-get install rsync php5-cli
+
+* On centOs
+    yum install rsync php5-cli
+
+---
+
+### Installing rsyncAs
+    curl https://github.com/hugorodrigues/rsyncas/raw/master/rsyncas >> /usr/bin/rsyncas
+    curl https://github.com/hugorodrigues/rsyncas/raw/master/rsyncas.example.conf >> /etc/rsyncas.conf
+    vim /etc/rsyncas.conf
+Note: You can use/install rsync without root, just change /usr/bin/rsyncas to ~/rsyncas/rsyncas and /etc/rsyncas.conf to ~/rsyncas/rsyncas.conf
+
+---
+
+### Upgrading rsyncAs
+    curl https://github.com/hugorodrigues/rsyncas/raw/master/rsyncas >> /usr/bin/rsyncas
+
+---
 
 ### Basic usage ###
 First you define a backup setting like:
@@ -41,10 +63,12 @@ You can have multiple settings, and run them all:
 You may also define setting in runtime:
 
     $ rsyncas source='/some/folder/' destination='someUser@someBackupServer.com:/some/folder/' description='My descrition'
-  
+
+---
 
 ### Some real world examples ###
 
+__Backup a webserver:__
     $bck['www'] = array(
         'description' => 'Backup http root',
         'source' => '/var/www/',
@@ -52,8 +76,9 @@ You may also define setting in runtime:
     );
 
 To backup this "www" setting:
-> $ rsyncas www
+    $ rsyncas www
 
+__Backup a Mysql Server:__
     $bck['mysql'] = array(
         'description' => 'Mysql Backup',
         'pre_cmd' => 'mysqldump --opt mydatabase > /tmp/mysql/mydatabase.sql',
@@ -63,11 +88,9 @@ To backup this "www" setting:
     );
 
 To backup this "mysql" setting:
-> $ rsyncas mysql
+    $ rsyncas mysql
 
-
-Making a site mirror
-
+__Mirror a website:__
     $bck['mirror'] = array(
         'description' => 'Server Mirror',
         'source' => '/var/www/',
@@ -75,17 +98,20 @@ Making a site mirror
     );
 
 To backup this "mirror" setting:
-> $ rsyncas mirror
+    $ rsyncas mirror
 
-To backup all the previous defined settings:
-> $ rsyncas --all
 
+__To backup all the previous defined settings:__
+    $ rsyncas --all
+
+---
 
 ### Cron usage ###
 Just like you normally do. Something like:
 
     10 2 * * * root rsyncas demoName
 
+---
 
 ### Man ###
     ---------------------------------------------------------------------------
@@ -98,6 +124,7 @@ Just like you normally do. Something like:
 
     Usage: rsyncas --help         | useless. shows this message
       or   rsyncas --all          | run all pre-defined configurations
+      or   rsyncas --test         | Test e-mail settings/delivery
       or   rsyncas key            | run a specific setting
       or   rsyncas [OPTION]       |
 
@@ -113,6 +140,7 @@ Just like you normally do. Something like:
       rsynca mybackup             | run the pre-defined "mybackup" configuration
       rsynca --all                | run all pre-defined configurations
 
+---
 
 ### Requirements ###
 * rsync - http://samba.anu.edu.au/rsync/
