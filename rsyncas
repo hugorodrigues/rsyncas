@@ -1,0 +1,447 @@
+#!/usr/bin/php
+<?php
+#  ---------------------------------------------------------------------------
+#  rsyncas | Rsync Auto Script
+#  ---------------------------------------------------------------------------
+#  https://github.com/hugorodrigues/rsynca
+#  ---------------------------------------------------------------------------
+#  This program is free software. It comes without any warranty, to
+#  the extent permitted by applicable law. You can redistribute it
+#  and/or modify it under the terms of the Do What The Fuck You Want
+#  To Public License, Version 2, as published by Sam Hocevar. See
+#  http://sam.zoy.org/wtfpl/COPYING for more details.
+#  ---------------------------------------------------------------------------
+
+
+
+
+#  -- Default Settings (You can expand this in /etc/rsyncas.conf) -------------
+$confDefault = array(
+    'admin_mail' => 'test@example.com',
+    'smtp_enabled' => true,
+    'smtp_server' => 'mail.example.com',
+    'smtp_from_mail' => 'rsyncas@example.com',
+    'smtp_from_name' => 'rsyncas at myserver',
+    'smtp_port' => '25',
+    'smtp_timeout' => '30',
+    'smtp_user' => 'test@example.com',
+    'smtp_pass' => 'yourpassword',
+    'smtp_local' => '127.0.0.1',
+    'smtp_nl' => "\r\n",
+    'nl' => "\n",
+    'timezone' => 'Europe/Lisbon', // Your timezone
+    'logs' => true, //Enable logs to disk
+    'logs_dir' => '/var/log/rsyncas/', // Folder to log
+    'version' => '0.2', // rsyncAS version
+    'debug' => true //  dump log to console
+);
+
+
+#  -- Some pre-defined configuration ( You should set this in /etc/rsyncas.conf)
+/*
+$backups['example'] = array(
+    'description' => 'Mirror /localfolder/ to /remoteFolder/ in 192.168.1.1',
+    'source' => '/localfolder/',
+    'destination' => 'some_user@192.168.1.1:/remoteFolder/'
+);*/
+
+
+
+
+
+
+
+
+//-- Lets go ------------------------------------------------------------------
+
+setup();
+init();
+die();
+
+
+
+
+/**
+ * Acts as a router
+ */
+function init() {
+    global $argc, $argv, $backups;
+
+
+
+    switch ($argc) {
+        case 1: // No arguments supplied
+            die(BANNER);
+            break;
+        case 2: // We got 2 args
+            switch ($argv[1]) {
+                case '--help':
+                    die(BANNER);
+                    break;
+                case '--all':
+                    processAll($backups);
+                    break;
+                case '--test':
+                    print_r(smtpMail(ADMIN_MAIL, 'Rsyncas Testing e-mail', 'Fuck YeAh! it works!'));
+                    break;
+                default:
+                    processAll(array($argv[1]=>$backups[$argv[1]]));
+                    break;
+            }
+            break;
+        default: // Multiple Args
+
+            array_shift($argv);
+            $userConf = array();
+
+            foreach ($argv as $arg) {
+                $tmp = explode('=', $arg);
+                $userConf[$tmp[0]] = $tmp[1];
+            }
+            processOne($userConf,'Runtime');
+            break;
+    }
+}
+
+
+
+
+/**
+ * Process all configs
+ * @param <type> $backups
+ */
+function processAll($backups) {
+    if ($backups)
+        foreach ($backups as $key => $bck) {
+            processOne($bck,$key);
+            lastLog(true); //Save log
+        }
+}
+
+
+
+
+/**
+ * Starts working a backup conf
+ * @param <type> $conf
+ * @return <type>
+ */
+function processOne($conf,$name='') {
+
+    $GLOBALS['ultimo'] = $name;
+
+    if (!is_array($conf)) {
+        lastLog('Configuration not found.');
+        return;
+    }
+
+    lastLog(false);
+    lastLog('---------------------------------------------------------------------------');
+    lastLog('Starting backup of "' . $conf['description'] . '"');
+    lastLog('---------------------------------------------------------------------------');
+
+    // Pre command
+    if ($conf['pre_cmd']) {
+        $return = cmdExec($conf['pre_cmd'], 'PRE');
+        if ($return['exit'] !== 0)
+            return false;
+    }
+
+
+    // Begin sync
+    $return = rsync($conf);
+    if ($return['exit'] !== 0)
+        return false;
+
+
+    // Post command
+    if ($conf['post_cmd']) {
+        $return = cmdExec($conf['post_cmd'], 'POST');
+        if ($return['exit'] !== 0)
+            return false;
+    }
+
+
+}
+
+
+
+
+/**
+ * Cmd execution
+ *
+ * @param <type> $cmd
+ * @param <type> $type
+ * @return <type>
+ */
+function cmdExec($cmd, $type='') {
+    global $cmdLog;
+
+    if (!$cmd)
+        return;
+
+    lastLog("Executing $type command...($cmd)");
+
+    @exec($cmd, $output, $exitCode);
+
+    $output = implode(NL, $output);
+
+    lastLog("$type CMD Exit Code: " . $exitCode);
+    lastLog("$type CMD Output: " . NL . $output . NL);
+
+    $cmdLog[$type]= array('output' => $output, 'exit' => $exitCode);
+
+    return $cmdLog[$type];
+}
+
+
+
+
+/**
+ * Log it
+ *
+ * @global <string> $lastLog
+ * @param <mixed> $input
+ */
+function lastLog($input) {
+    global $lastLog, $cmdLog;
+
+    if ($input === false) {
+        $lastLog = NL . NL;
+        $cmdLog = array();
+        return;
+    }
+
+    if ($input === true) {
+
+        //Email
+
+        $win = true;
+        if ($cmdLog['PRE'] and $cmdLog['PRE']['exit'] != 0) $win = false;
+        if ($cmdLog['SYNC'] and $cmdLog['SYNC']['exit'] != 0) $win = false;
+        if ($cmdLog['POST'] and $cmdLog['POST']['exit'] != 0) $win = false;
+        if ($win == true)
+            $status = 'WIN!';
+        else
+            $status = 'FAIL!';
+
+        $debug = smtpMail(ADMIN_MAIL, 'rsyncas -> '.$GLOBALS['ultimo'].' -> '.$status, $lastLog);
+        //print_r($debug);
+        
+
+        //TODO: Dump top logs
+        return;
+    }
+
+    $input = '[' . date("Y/m/d H:i:s") . '] ' . $input . NL;
+    if (DEBUG == true)
+        echo $input;
+    $lastLog .= $input;
+}
+
+
+
+
+/**
+ * Starts sync a bck conf
+ * @param <array> $conf
+ * @return <boolean>
+ */
+function rsync($conf) {
+
+    if ($conf['destination'] == '' or $conf['source'] == '') {
+        lastLog("Invalid settings");
+        return array('output' => 'rsyncas: Invalid settings', 'exit' => 'erro');
+    }
+
+
+    // do we have a remote source/destination?
+    // @TODO: this shit is broken as we can have files named with @
+    if (strpos($conf['destination'], '@') !== false or strpos($conf['source'], '@') !== false) {
+
+        if (!is_numeric($conf['ssh_port']))
+            $conf['ssh_port'] = 22;
+
+        $ssh = '-e "ssh -p ' . $conf['ssh_port'] . '" ';
+    }
+
+    // final cmd
+    $cmd = 'rsync -i --delete -vv -a ' . $ssh . escapeshellcmd($conf['source']) . ' ' . escapeshellcmd($conf['destination']);
+
+    // lets work
+    $res = cmdExec($cmd, 'SYNC');
+
+    if ($res['exit'] === 0) {
+        lastLog($conf['description'] . " >> WIN! " . NL);
+    } else {
+        lastLog($conf['description'] . " >> FAIL! " . NL);
+        return $res['exit'];
+    }
+
+    return array('output' => $res['output'], 'exit' => $res['exit']);
+
+}
+
+
+
+
+/**
+ * Send E-mail using smpt
+ *
+ * from: http://www.codewalkers.com/c/a/Email-Code/Smtp-Auth-Email-Script/
+ *
+ * @param <type> $to
+ * @param <type> $subject
+ * @param <type> $message
+ * @return <type>
+ */
+
+function smtpMail($to, $subject, $message) {
+
+
+    $debug = array();
+    $localHost = '127.0.0.1';
+
+    //------ Lets Pop before SMTP ------------
+    $socketPop = fsockopen(SMTP_SERVER, 110); // POP3 port
+    if (!$socketPop) {
+        $debug[] = "No connection to " . SMTP_SERVER . ":110";
+        return $debug;
+    }
+
+    $res = fgets($socketPop, 512); // read +OK
+    $debug[] = trim($res);
+
+    if (substr(trim($res), 0, 3) != "+OK")
+        return $debug;
+
+    fputs($socketPop, "USER " . SMTP_USER . "\r\n"); // send user
+    $res = fgets($socketPop, 512); // read +OK
+    $debug[] = trim($res);
+
+    if (substr(trim($res), 0, 3) != "+OK")
+        return $debug;
+
+    fputs($socketPop, "PASS " . SMTP_PASS . "\r\n"); // send pass
+    $res = fgets($socketPop, 512); // read +OK
+    $debug[] = trim($res);
+
+    if (substr(trim($res), 0, 3) != "+OK")
+        return $debug;
+
+    fputs($socketPop, "QUIT\r\n"); // quit
+    fclose($socketPop);
+
+
+
+    //------ Sending via SMTP ------------
+
+
+
+    $smtp = fsockopen(SMTP_SERVER, 25);
+    $result = array();
+
+    if (is_resource($smtp) === true) {
+        stream_set_timeout($smtp, 1);
+
+        $debug[] = trim(fgets($smtp));
+
+        fwrite($smtp, 'HELO ' . $localHost . "\r\n");
+        $debug[] = trim(fgets($smtp));
+/**/
+        fwrite($smtp, 'AUTH LOGIN' . "\r\n");
+        $debug[] = trim(fgets($smtp));
+
+        fwrite($smtp, base64_encode(SMTP_USER) . "\r\n");
+        $debug[] = trim(fgets($smtp));
+
+        fwrite($smtp, base64_encode(SMTP_PASS) . "\r\n");
+        $debug[] = trim(fgets($smtp));
+
+        fwrite($smtp, 'MAIL FROM:<' . SMTP_FROM_MAIL . '>' . "\r\n");
+        $debug[] = trim(fgets($smtp));
+
+        fwrite($smtp, 'RCPT TO:<' . $to . '>' . "\r\n");
+        $debug[] = trim(fgets($smtp));
+
+        fwrite($smtp, 'DATA' . "\r\n");
+        $debug[] = trim(fgets($smtp));
+
+        fwrite($smtp, 'From: "Rsyncas" <' . SMTP_FROM_MAIL . '>' . "\r\n");
+        fwrite($smtp, 'To: "GOD" <' . $to . '>' . "\r\n");
+        fwrite($smtp, 'Subject: ' . $subject . "\r\n");
+        fwrite($smtp, '' . "\r\n");
+        fwrite($smtp, $message . "\r\n");
+
+        fwrite($smtp, "\r\n" . '.' . "\r\n");
+        $result[8] = trim(fgets($smtp));
+
+        fwrite($smtp, 'QUIT' . "\r\n");
+        $result[9] = trim(fgets($smtp));
+
+        fclose($smtp);
+    }
+
+    return $debug;
+}
+
+
+
+/**
+ * Process app settings
+ */
+function setup() {
+    global $confDefault, $conf,$backups;
+
+  //  print_r($_SERVER);
+
+
+
+    if (is_readable('/etc/rsyncas.conf'))
+        include ('/etc/rsyncas.conf');
+    else
+    if (is_readable(dirname(realpath($_SERVER['PHP_SELF'])) . '/rsyncas.conf'))
+        include (dirname(realpath($_SERVER['PHP_SELF'])) . '/rsyncas.conf');
+
+
+
+    if (is_array($conf))
+        $confDefault = array_merge($confDefault, $conf);
+    else
+        $confDefault['smtp_enabled'] = false; // no config no mail
+
+        foreach ($confDefault as $key => $value)
+        define(strtoupper($key), $value);
+
+    set_time_limit(0);
+    error_reporting(E_STRICT);
+    date_default_timezone_set($confDefault['timezone']);
+
+    define('BANNER', "---------------------------------------------------------------------------
+rsyncas version " . VERSION . "  |  https://github.com/hugorodrigues/rsyncas
+---------------------------------------------------------------------------
+rsyncas comes with ABSOLUTELY NO WARRANTY.  This is free software, and you
+are welcome to redistribute it and/or modify it under the terms of the
+Do What The Fuck You Want To Public License, Version 2.
+---------------------------------------------------------------------------
+
+Usage: rsyncas --help         | useless. shows this message
+  or   rsyncas --all          | run all pre-defined configurations
+  or   rsyncas --test         | Test e-mail settings/delivery
+  or   rsyncas key            | run a specific setting
+  or   rsyncas [OPTION]       |
+
+Options:
+  description=                | description of the sync
+  source=                     | source target
+  destination=                | destination target
+  ssh_port=                   | alternative ssh port
+  pre_cmd=                    | command to execute before sync
+  post_cmd=                   | command to execute after sync
+
+Examples:
+  rsynca mybackup             | run the pre-defined \"mybackup\" configuration
+  rsynca --all                | run all pre-defined configurations
+  
+");
+}
