@@ -17,16 +17,14 @@ I use it to backup my servers
 
 ### There are so many backup solutions/scripts, why another? ###
 * This was a 2 hours cooking to replace some bloated "backup solution/script" that i found on the "internets" and was burning my CPU.
+* This one DON'T ask your for some oldschool tape drive.
 * This one does exactly what i want.
 
 ---
 
 ### Installing dependencies (as root)
-* On Debian
-    apt-get install rsync php5-cli
-
-* On centOs
-    yum install rsync php5-cli
+* On Debian: __apt-get install rsync php5-cli__
+* On CentOs: __yum install rsync php5-cli__
 
 ---
 
@@ -34,7 +32,8 @@ I use it to backup my servers
     curl https://github.com/hugorodrigues/rsyncas/raw/master/rsyncas >> /usr/bin/rsyncas
     curl https://github.com/hugorodrigues/rsyncas/raw/master/rsyncas.example.conf >> /etc/rsyncas.conf
     vim /etc/rsyncas.conf
-Note: You can use/install rsync without root, just change /usr/bin/rsyncas to ~/rsyncas/rsyncas and /etc/rsyncas.conf to ~/rsyncas/rsyncas.conf
+
+__Note:__ You can use/install rsync without root, just change /usr/bin/rsyncas to ~/rsyncas/rsyncas and /etc/rsyncas.conf to ~/rsyncas/rsyncas.conf
 
 ---
 
@@ -55,9 +54,11 @@ First you define a backup setting like:
     );
 
 and then to backup that setting you run:
+
     $ rsyncas mybackup
 
 You can have multiple settings, and run them all:
+
     $ rsyncas --all
 
 You may also define setting in runtime:
@@ -69,6 +70,7 @@ You may also define setting in runtime:
 ### Some real world examples ###
 
 __Backup a webserver:__
+
     $bck['www'] = array(
         'description' => 'Backup http root',
         'source' => '/var/www/',
@@ -76,9 +78,11 @@ __Backup a webserver:__
     );
 
 To backup this "www" setting:
+
     $ rsyncas www
 
 __Backup a Mysql Server:__
+
     $bck['mysql'] = array(
         'description' => 'Mysql Backup',
         'pre_cmd' => 'mysqldump --opt mydatabase > /tmp/mysql/mydatabase.sql',
@@ -88,9 +92,11 @@ __Backup a Mysql Server:__
     );
 
 To backup this "mysql" setting:
+
     $ rsyncas mysql
 
 __Mirror a website:__
+
     $bck['mirror'] = array(
         'description' => 'Server Mirror',
         'source' => '/var/www/',
@@ -98,10 +104,12 @@ __Mirror a website:__
     );
 
 To backup this "mirror" setting:
+
     $ rsyncas mirror
 
 
 __To backup all the previous defined settings:__
+
     $ rsyncas --all
 
 ---
