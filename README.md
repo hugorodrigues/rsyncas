@@ -29,8 +29,9 @@ I use it to backup my servers
 ---
 
 ### Installing rsyncAs
-    curl https://github.com/hugorodrigues/rsyncas/raw/master/rsyncas >> /usr/bin/rsyncas
-    curl https://github.com/hugorodrigues/rsyncas/raw/master/rsyncas.example.conf >> /etc/rsyncas.conf
+    curl https://github.com/hugorodrigues/rsyncas/raw/master/rsyncas > /usr/bin/rsyncas
+    chmod +x /usr/bin/rsyncas
+    curl https://github.com/hugorodrigues/rsyncas/raw/master/rsyncas.example.conf > /etc/rsyncas.conf
     vim /etc/rsyncas.conf
 
 __Note:__ You can use/install rsync without root, just change /usr/bin/rsyncas to ~/rsyncas/rsyncas and /etc/rsyncas.conf to ~/rsyncas/rsyncas.conf
@@ -38,7 +39,7 @@ __Note:__ You can use/install rsync without root, just change /usr/bin/rsyncas t
 ---
 
 ### Upgrading rsyncAs
-    curl https://github.com/hugorodrigues/rsyncas/raw/master/rsyncas >> /usr/bin/rsyncas
+    curl https://github.com/hugorodrigues/rsyncas/raw/master/rsyncas > /usr/bin/rsyncas
 
 ---
 
